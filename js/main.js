@@ -271,7 +271,11 @@ function addDoseEvent(e) {
     const [hours, minutes] = timeValue.split(':').map(Number);
     doseTime.setHours(hours, minutes, 0, 0);
     
-    const minutesFromStart = Math.max(0, Math.round(appState.patient.clockTimeToMinutes(doseTime)));
+    // Handle day crossing for dose times
+    let minutesFromStart = Math.round(appState.patient.clockTimeToMinutes(doseTime));
+    
+    // Ensure minimum time is 0 (no negative times allowed)
+    minutesFromStart = Math.max(0, minutesFromStart);
     
     const doseEvent = new DoseEvent(minutesFromStart, bolusAmount, continuousRate);
     
@@ -468,15 +472,8 @@ function updateChart() {
     });
     
     const labels = chartData.map(timePoint => {
-        const minutes = timePoint.timeInMinutes;
-        // Show relative time from anesthesia start
-        if (minutes < 60) {
-            return `${minutes.toFixed(0)}分`;
-        } else {
-            const hours = Math.floor(minutes / 60);
-            const mins = Math.floor(minutes % 60);
-            return `${hours}時間${mins.toString().padStart(2, '0')}分`;
-        }
+        // Show actual clock time instead of relative time
+        return timePoint.formattedClockTime(appState.patient);
     });
     
     const plasmaData = chartData.map(timePoint => timePoint.plasmaConcentration);
@@ -543,7 +540,7 @@ function updateChart() {
                 x: {
                     title: {
                         display: true,
-                        text: '麻酔開始からの時間'
+                        text: '時刻'
                     },
                     grid: {
                         display: true,

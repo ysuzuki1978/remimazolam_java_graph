@@ -93,7 +93,15 @@ class Patient {
     }
     
     clockTimeToMinutes(clockTime) {
-        return (clockTime.getTime() - this.anesthesiaStartTime.getTime()) / 60000;
+        let minutesDiff = (clockTime.getTime() - this.anesthesiaStartTime.getTime()) / 60000;
+        
+        // Handle day crossing: if the time appears to be "before" start time by more than 12 hours,
+        // assume it's the next day
+        if (minutesDiff < -720) { // -12 hours
+            minutesDiff += 1440; // Add 24 hours
+        }
+        
+        return minutesDiff;
     }
     
     get formattedStartTime() {
