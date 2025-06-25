@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="レミマゾラムの薬物動態・薬力学シミュレーター（教育・研究用）">
+    <meta name="keywords" content="remimazolam, pharmacokinetics, pharmacodynamics, anesthesia, simulation">
+    <meta name="author" content="YASUYUKI SUZUKI">
+    <title>Remimazolam PK/PD Simulator with Graph</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007aff">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Disclaimer Modal -->
+    <div id="disclaimerModal" class="modal active">
+        <div class="modal-content">
+            <div class="disclaimer-header">
+                <div class="warning-icon">⚠️</div>
+                <h2>免責事項</h2>
+            </div>
+            <div class="disclaimer-text">
+                <p>本アプリケーションは、薬物動態モデルに基づくシミュレーション結果を提供する教育・研究用ツールです。</p>
+                <p>表示される結果はあくまで理論値であり、実際の臨床的な患者の反応を保証するものではありません。</p>
+                <p>本アプリを実際の臨床判断の根拠として使用しないでください。</p>
+                <p>すべての臨床判断は、資格を持つ医療専門家の責任において行われるべきです。</p>
+            </div>
+            <button id="acceptDisclaimer" class="accept-btn">同意して使用開始</button>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="mainApp" class="main-app hidden">
+        <!-- Navigation Tabs -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="patient">
+                <span class="tab-icon">👤</span>
+                <span class="tab-text">患者情報</span>
+            </button>
+            <button class="tab-btn" data-tab="dose">
+                <span class="tab-icon">💊</span>
+                <span class="tab-text">投与スケジュール</span>
+            </button>
+            <button class="tab-btn" data-tab="results">
+                <span class="tab-icon">📊</span>
+                <span class="tab-text">結果</span>
+            </button>
+            <button class="tab-btn" data-tab="info">
+                <span class="tab-icon">ℹ️</span>
+                <span class="tab-text">情報</span>
+            </button>
+        </nav>
+
+        <!-- Tab Panels -->
+        <main class="tab-content">
+            <!-- Patient Information Tab -->
+            <section id="patientTab" class="tab-panel active">
+                <div class="header">
+                    <h1>患者情報</h1>
+                    <p class="subtitle">Remimazolam PK/PD シミュレーター</p>
+                    <p class="version">V3 ハイブリッドエンジン版</p>
+                </div>
+
+                <div class="card patient-info-card">
+                    <div class="card-header">
+                        <h3>患者情報</h3>
+                        <button id="editPatientBtn" class="edit-btn">編集</button>
+                    </div>
+                    <div class="patient-grid">
+                        <div class="info-item">
+                            <label>患者ID</label>
+                            <span id="patientId">患者-2025-06-24</span>
+                        </div>
+                        <div class="info-item">
+                            <label>年齢</label>
+                            <span id="patientAge">50歳</span>
+                        </div>
+                        <div class="info-item">
+                            <label>体重</label>
+                            <span id="patientWeight">70.0 kg</span>
+                        </div>
+                        <div class="info-item">
+                            <label>身長</label>
+                            <span id="patientHeight">170 cm</span>
+                        </div>
+                        <div class="info-item">
+                            <label>BMI</label>
+                            <span id="patientBMI">24.2</span>
+                        </div>
+                        <div class="info-item">
+                            <label>性別</label>
+                            <span id="patientSex">男性</span>
+                        </div>
+                        <div class="info-item">
+                            <label>ASA-PS</label>
+                            <span id="patientASA">ASA I-II</span>
+                        </div>
+                        <div class="info-item">
+                            <label>麻酔開始</label>
+                            <span id="anesthesiaStart">08:00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="toDoseScheduleBtn" class="primary-btn">
+                    投与スケジュール設定へ →
+                </button>
+            </section>
+
+            <!-- Dose Schedule Tab -->
+            <section id="doseTab" class="tab-panel">
+                <div class="header">
+                    <h1>投与スケジュール</h1>
+                    <p class="subtitle">複数回の投与変更が可能です</p>
+                </div>
+
+                <div class="dose-events-container">
+                    <div id="doseEventsList" class="dose-events-list">
+                        <!-- Dose events will be added here dynamically -->
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="addDoseEventBtn" class="secondary-btn">
+                        ➕ 投与イベント追加
+                    </button>
+                    <button id="runSimulationBtn" class="primary-btn" disabled>
+                        ▶️ シミュレーション実行
+                    </button>
+                </div>
+            </section>
+
+            <!-- Results Tab -->
+            <section id="resultsTab" class="tab-panel">
+                <div id="noResults" class="no-results">
+                    <div class="empty-icon">📊</div>
+                    <h2>シミュレーション結果なし</h2>
+                    <p>投与スケジュールタブでシミュレーションを実行してください</p>
+                    <button id="toDoseTabBtn" class="primary-btn">投与スケジュールへ</button>
+                </div>
+
+                <div id="resultsContent" class="results-content hidden">
+                    <div class="header">
+                        <h1>シミュレーション結果</h1>
+                        <p id="calculationMethod" class="subtitle">V3 Hybrid Engine (0.01min precision)</p>
+                    </div>
+
+                    <div class="summary-cards">
+                        <div class="summary-card plasma">
+                            <h4>最大血漿濃度</h4>
+                            <span id="maxPlasma" class="value">0.000</span>
+                            <span class="unit">µg/mL</span>
+                        </div>
+                        <div class="summary-card effect">
+                            <h4>最大効果部位濃度</h4>
+                            <span id="maxEffect" class="value">0.000</span>
+                            <span class="unit">µg/mL</span>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="concentrationChart" width="400" height="200"></canvas>
+                    </div>
+
+                    <div class="results-table-container">
+                        <table id="resultsTable" class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>時間</th>
+                                    <th>血漿濃度</th>
+                                    <th>効果部位濃度</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Results will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button id="exportCsvBtn" class="primary-btn">
+                        📤 CSVファイルで保存・共有
+                    </button>
+                </div>
+            </section>
+
+            <!-- Info Tab -->
+            <section id="infoTab" class="tab-panel">
+                <div class="info-content">
+                    <div class="header">
+                        <div class="app-icon">🩺</div>
+                        <h1>Remimazolam PK/PD Simulator</h1>
+                        <p class="version">Web Version 1.0</p>
+                        <p class="engine">Masui Complete Implementation Engine</p>
+                    </div>
+
+                    <div class="card warning-card">
+                        <div class="card-header">
+                            <span class="warning-icon">⚠️</span>
+                            <h3>重要な使用制限</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>このソフトウェアは、教育および研究目的での利用のみを想定しています。</p>
+                            <ul>
+                                <li>本ソフトウェアは医療機器ではありません</li>
+                                <li>診断、治療、その他一切の臨床用途・患者ケアに使用してはなりません</li>
+                                <li>本ソフトウェアの使用によって生じたいかなる結果についても、作者は一切の責任を負いません</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card reference-card">
+                        <div class="card-header">
+                            <span class="reference-icon">📄</span>
+                            <h3>科学的根拠</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>本アプリケーションは以下の研究に基づいています：</p>
+                            <div class="reference">
+                                <h4>母集団薬物動態モデル</h4>
+                                <p>Masui, K., et al. (2022)</p>
+                                <p>Journal of Anesthesia, 36(4), 493-505</p>
+                                <p class="doi">doi:10.1007/s00540-022-03079-y</p>
+                            </div>
+                            <div class="reference">
+                                <h4>効果部位平衡定数 ke0</h4>
+                                <p>Masui, K., & Hagihira, S. (2022)</p>
+                                <p>Journal of Anesthesia, 36(6), 733-742</p>
+                                <p class="doi">doi:10.1007/s00540-022-03099-8</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card developer-card">
+                        <div class="card-header">
+                            <span class="developer-icon">👨‍💻</span>
+                            <h3>開発者情報</h3>
+                        </div>
+                        <div class="card-content">
+                            <h4>YASUYUKI SUZUKI</h4>
+                            <p class="orcid">ORCID: 0000-0002-4871-9685</p>
+                            <p><strong>所属:</strong></p>
+                            <ul>
+                                <li>済生会松山病院麻酔科</li>
+                                <li>愛媛大学大学院医学系研究科薬理学</li>
+                            </ul>
+                            <p class="tech">開発環境: JavaScript/HTML/CSS</p>
+                            <p class="tech">Developed with Claude Code (Anthropic)</p>
+                        </div>
+                    </div>
+
+                    <div class="card calculation-card">
+                        <div class="card-header">
+                            <span class="calculation-icon">🧮</span>
+                            <h3>計算エンジン詳細</h3>
+                        </div>
+                        <div class="card-content">
+                            <h4>Masui 完全実装エンジン</h4>
+                            <p><strong>指定された計算手法:</strong> 指示通りのMasui PKモデルに基づく2つの計算方法を正確に実装しています。</p>
+                            
+                            <h4>ke₀計算方法</h4>
+                            <p><strong>方法A - 数値解析（厳密解）:</strong></p>
+                            <ul>
+                                <li>①3次方程式: x³ + a₂x² + a₁x + a₀ = 0 をCardanoの公式で解く</li>
+                                <li>②係数A,B,C計算: 血漿濃度式の指数関数係数を求める</li>
+                                <li>③数値的根探索: f(ke₀) = 0 をブレント法で解く（区間[0.15, 0.26]）</li>
+                                <li>④最大効果到達時間: t_peak = 2.6分で最適化</li>
+                            </ul>
+                            
+                            <p><strong>方法B - 重回帰モデル（近似解）:</strong></p>
+                            <ul>
+                                <li>補助関数F(x): 年齢・体重・身長・性別・ASA-PSの多項式関数</li>
+                                <li>補助変数F2(x): 中心化された変数による交互作用項</li>
+                                <li>重回帰式: 25項からなる複雑な多変量回帰モデル</li>
+                                <li>個別化計算: 患者特性に応じた高精度ke₀推定</li>
+                            </ul>
+                            
+                            <h4>PKパラメータ計算</h4>
+                            <p><strong>体重計算:</strong></p>
+                            <ul>
+                                <li>理想体重(IBW) = 45.4 + 0.89×(身長-152.4) + 4.5×(1-性別)</li>
+                                <li>調整体重(ABW) = IBW + 0.4×(TBW-IBW)</li>
+                            </ul>
+                            <p><strong>分布容積・クリアランス:</strong> Masui 2022のtheta値による正確な計算</p>
+                            
+                            <h4>3コンパートメントモデル</h4>
+                            <p><strong>微分方程式系:</strong></p>
+                            <ul>
+                                <li>dA₁/dt = Input(t) - k₁₀·A₁ - k₁₂·A₁ + k₂₁·A₂ - k₁₃·A₁ + k₃₁·A₃</li>
+                                <li>dA₂/dt = k₁₂·A₁ - k₂₁·A₂</li>
+                                <li>dA₃/dt = k₁₃·A₁ - k₃₁·A₃</li>
+                                <li>効果部位: dCe/dt = ke₀×(Cp - Ce)</li>
+                            </ul>
+                            
+                            <h4>計算精度・安全性</h4>
+                            <ul>
+                                <li>数値解析優先: 厳密解が利用可能な場合は最優先</li>
+                                <li>重回帰フォールバック: 数値解析失敗時の自動切替</li>
+                                <li>従来式バックアップ: 完全失敗時の安全機構</li>
+                                <li>妥当性チェック: ke₀値が臨床範囲(0.2-0.4 /min)内か確認</li>
+                                <li>血漿濃度計算: LSODA積分法（Adams法・BDF法自動切替）</li>
+                                <li>効果部位濃度: VHAC法（Variable-step Hybrid Algorithm for Ce）</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card privacy-card">
+                        <div class="card-header">
+                            <span class="privacy-icon">🔒</span>
+                            <h3>データとプライバシー</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>このソフトウェアは、利用者が入力したいかなるデータも収集、保存、外部送信することはありません。すべての計算は、利用者のブラウザ上で完結します。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Patient Editor Modal -->
+    <div id="patientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>患者情報編集</h3>
+                <button id="closePatientModal" class="close-btn">×</button>
+            </div>
+            <form id="patientForm" class="patient-form">
+                <div class="form-group">
+                    <label for="editPatientId">患者ID</label>
+                    <input type="text" id="editPatientId" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editAge">年齢 (歳): <span id="ageValue">50</span></label>
+                    <input type="range" id="editAge" min="18" max="100" value="50">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editWeight">体重 (kg): <span id="weightValue">70.0</span></label>
+                    <input type="range" id="editWeight" min="30" max="200" step="0.5" value="70">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editHeight">身長 (cm): <span id="heightValue">170</span></label>
+                    <input type="range" id="editHeight" min="120" max="220" value="170">
+                </div>
+                
+                <div class="form-group">
+                    <label>性別</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="sex" value="male" checked> 男性</label>
+                        <label><input type="radio" name="sex" value="female"> 女性</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>ASA-PS</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="asa" value="1-2" checked> ASA I-II</label>
+                        <label><input type="radio" name="asa" value="3-4"> ASA III-IV</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editAnesthesiaStart">麻酔開始時刻</label>
+                    <input type="time" id="editAnesthesiaStart" value="08:00">
+                </div>
+                
+                <div class="form-group">
+                    <label>BMI: <span id="bmiCalculated">24.2</span></label>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancelPatientEdit" class="secondary-btn">キャンセル</button>
+                    <button type="submit" class="primary-btn">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dose Event Modal -->
+    <div id="doseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>投与イベント追加</h3>
+                <button id="closeDoseModal" class="close-btn">×</button>
+            </div>
+            <form id="doseForm" class="dose-form">
+                <div class="form-group">
+                    <label>麻酔開始: <span id="anesthesiaStartTime">08:00</span></label>
+                </div>
+                
+                <div class="form-group">
+                    <label for="doseTime">投与時刻</label>
+                    <input type="time" id="doseTime" value="08:00" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="bolusAmount">ボーラス投与量 (mg): <span id="bolusValue">0.0</span></label>
+                    <input type="range" id="bolusAmount" min="0" max="50" step="0.5" value="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="continuousRate">持続投与量 (mg/kg/hr): <span id="continuousValue">0.0</span></label>
+                    <input type="range" id="continuousRate" min="0" max="5" step="0.1" value="0">
+                </div>
+                
+                <p class="note">ボーラス・持続投与ともに0で投与中止を設定できます</p>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancelDoseAdd" class="secondary-btn">キャンセル</button>
+                    <button type="submit" class="primary-btn">追加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/models.js"></script>
+    <script src="js/masui-ke0-exact.js"></script>
+    <script src="js/lsoda.js"></script>
+    <script src="js/calculator.js"></script>
+    <script src="js/main.js"></script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful');
+                    }, function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

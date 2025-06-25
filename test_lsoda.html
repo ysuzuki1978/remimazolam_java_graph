@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSODA Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .passed { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .failed { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>LSODA Integration Test for Remimazolam PK/PD Simulator</h1>
+    
+    <div id="testResults"></div>
+
+    <script src="js/models.js"></script>
+    <script src="js/lsoda.js"></script>
+    <script src="js/calculator.js"></script>
+
+    <script>
+        function runTests() {
+            const results = document.getElementById('testResults');
+            
+            // Test 1: Basic LSODA functionality
+            try {
+                const lsoda = new LSODA();
+                
+                // Simple exponential decay: dy/dt = -y, y(0) = 1
+                const f = (t, y) => [-y[0]];
+                const y0 = [1.0];
+                const t = [0, 0.5, 1.0, 1.5, 2.0];
+                
+                const solution = lsoda.integrate(f, y0, t);
+                const expected = t.map(time => Math.exp(-time));
+                
+                let maxError = 0;
+                for (let i = 0; i < solution.y.length; i++) {
+                    const error = Math.abs(solution.y[i][0] - expected[i]);
+                    maxError = Math.max(maxError, error);
+                }
+                
+                const test1Result = maxError < 1e-6 ? 'passed' : 'failed';
+                results.innerHTML += `
+                    <div class="test-result ${test1Result}">
+                        <h3>Test 1: Basic LSODA Integration (Exponential Decay)</h3>
+                        <p>Status: ${test1Result.toUpperCase()}</p>
+                        <p>Maximum Error: ${maxError.toExponential(3)}</p>
+                        <p>Expected: < 1e-6</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                results.innerHTML += `
+                    <div class="test-result failed">
+                        <h3>Test 1: Basic LSODA Integration</h3>
+                        <p>Status: FAILED</p>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+            
+            // Test 2: PK Solver functionality
+            try {
+                const pkSolver = new PKLSODASolver();
+                
+                // Simple 1-compartment test
+                const pkParams = {
+                    k10: 0.1, k12: 0.05, k21: 0.03, k13: 0.02, k31: 0.01,
+                    v1: 10.0
+                };
+                
+                const times = [0, 1, 2, 3, 4, 5];
+                const infusionRates = [0, 0, 0, 0, 0, 0];
+                const bolusEvents = [{time: 0, amount: 100}];
+                
+                const solution = pkSolver.solve3Compartment(pkParams, times, infusionRates, bolusEvents);
+                
+                // Check that concentration decreases over time (basic sanity check)
+                const concentrations = solution.y.map(state => state[0] / pkParams.v1);
+                let isDecreasing = true;
+                for (let i = 1; i < concentrations.length; i++) {
+                    if (concentrations[i] > concentrations[i-1]) {
+                        isDecreasing = false;
+                        break;
+                    }
+                }
+                
+                const test2Result = isDecreasing && concentrations[0] > 9 ? 'passed' : 'failed';
+                results.innerHTML += `
+                    <div class="test-result ${test2Result}">
+                        <h3>Test 2: PK Solver 3-Compartment Model</h3>
+                        <p>Status: ${test2Result.toUpperCase()}</p>
+                        <p>Initial concentration: ${concentrations[0].toFixed(3)} µg/mL</p>
+                        <p>Final concentration: ${concentrations[concentrations.length-1].toFixed(3)} µg/mL</p>
+                        <p>Monotonic decrease: ${isDecreasing ? 'Yes' : 'No'}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                results.innerHTML += `
+                    <div class="test-result failed">
+                        <h3>Test 2: PK Solver 3-Compartment Model</h3>
+                        <p>Status: FAILED</p>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+            
+            // Test 3: Full integration with Calculator
+            try {
+                const calculator = new PKCalculationEngine();
+                
+                // Create test patient
+                const patient = new Patient("Test-Patient", 50, 70, 170, SexType.MALE, AsapsType.CLASS_1_2, new Date());
+                
+                // Create test dose events
+                const doseEvents = [
+                    new DoseEvent(0, 12.0, 1.0),
+                    new DoseEvent(30, 0, 2.0),
+                    new DoseEvent(60, 6.0, 0)
+                ];
+                
+                // Run simulation
+                const result = calculator.performSimulationV3Hybrid(patient, doseEvents, 120);
+                
+                const hasResults = result.timePoints.length > 0;
+                const hasPlasmaConc = result.maxPlasmaConcentration > 0;
+                const hasEffectConc = result.maxEffectSiteConcentration > 0;
+                const isLSODA = result.calculationMethod.includes('LSODA');
+                
+                const test3Result = hasResults && hasPlasmaConc && hasEffectConc ? 'passed' : 'failed';
+                results.innerHTML += `
+                    <div class="test-result ${test3Result}">
+                        <h3>Test 3: Full Integration Test</h3>
+                        <p>Status: ${test3Result.toUpperCase()}</p>
+                        <p>Calculation Method: ${result.calculationMethod}</p>
+                        <p>Time Points: ${result.timePoints.length}</p>
+                        <p>Max Plasma Concentration: ${result.maxPlasmaConcentration.toFixed(3)} µg/mL</p>
+                        <p>Max Effect Site Concentration: ${result.maxEffectSiteConcentration.toFixed(3)} µg/mL</p>
+                        <p>LSODA Enabled: ${isLSODA ? 'Yes' : 'No'}</p>
+                    </div>
+                `;
+                
+                // Display first few time points
+                results.innerHTML += `
+                    <div class="test-result info">
+                        <h3>Sample Results (First 10 Time Points)</h3>
+                        <table>
+                            <tr>
+                                <th>Time (min)</th>
+                                <th>Plasma Conc (µg/mL)</th>
+                                <th>Effect Site Conc (µg/mL)</th>
+                            </tr>
+                `;
+                
+                for (let i = 0; i < Math.min(10, result.timePoints.length); i++) {
+                    const tp = result.timePoints[i];
+                    results.innerHTML += `
+                        <tr>
+                            <td>${tp.timeInMinutes}</td>
+                            <td>${tp.plasmaConcentration.toFixed(3)}</td>
+                            <td>${tp.effectSiteConcentration.toFixed(3)}</td>
+                        </tr>
+                    `;
+                }
+                
+                results.innerHTML += `
+                        </table>
+                    </div>
+                `;
+                
+            } catch (error) {
+                results.innerHTML += `
+                    <div class="test-result failed">
+                        <h3>Test 3: Full Integration Test</h3>
+                        <p>Status: FAILED</p>
+                        <p>Error: ${error.message}</p>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+            }
+            
+            // Test 4: Performance comparison
+            try {
+                const calculator = new PKCalculationEngine();
+                const patient = new Patient("Perf-Test", 50, 70, 170, SexType.MALE, AsapsType.CLASS_1_2, new Date());
+                const doseEvents = [new DoseEvent(0, 12.0, 1.0)];
+                
+                // Time LSODA method
+                const startLSODA = performance.now();
+                const resultLSODA = calculator.performSimulationV3Hybrid(patient, doseEvents, 60);
+                const timeLSODA = performance.now() - startLSODA;
+                
+                results.innerHTML += `
+                    <div class="test-result info">
+                        <h3>Test 4: Performance Metrics</h3>
+                        <p>LSODA + Hybrid Method: ${timeLSODA.toFixed(2)} ms</p>
+                        <p>Time Points Generated: ${resultLSODA.timePoints.length}</p>
+                        <p>High-Resolution Points: ${resultLSODA.plasmaConcentrations.length}</p>
+                        <p>Performance: ${(resultLSODA.timePoints.length / timeLSODA * 1000).toFixed(0)} points/second</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                results.innerHTML += `
+                    <div class="test-result failed">
+                        <h3>Test 4: Performance Test</h3>
+                        <p>Status: FAILED</p>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>
