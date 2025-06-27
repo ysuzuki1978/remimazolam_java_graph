@@ -129,7 +129,7 @@ function setupDoseFormSliders() {
     });
     
     continuousSlider.addEventListener('input', (e) => {
-        document.getElementById('continuousValue').textContent = parseFloat(e.target.value).toFixed(1);
+        document.getElementById('continuousValue').textContent = parseFloat(e.target.value).toFixed(2);
     });
 }
 
@@ -183,7 +183,7 @@ function showDoseEventEditor() {
     document.getElementById('bolusAmount').value = 0;
     document.getElementById('continuousRate').value = 0;
     document.getElementById('bolusValue').textContent = '0.0';
-    document.getElementById('continuousValue').textContent = '0.0';
+    document.getElementById('continuousValue').textContent = '0.00';
     document.getElementById('anesthesiaStartTime').textContent = appState.patient.formattedStartTime;
     
     modal.classList.add('active');
@@ -272,7 +272,16 @@ function addDoseEvent(e) {
     doseTime.setHours(hours, minutes, 0, 0);
     
     // Handle day crossing for dose times
-    let minutesFromStart = Math.round(appState.patient.clockTimeToMinutes(doseTime));
+    let minutesFromStart = appState.patient.clockTimeToMinutes(doseTime);
+    
+    // If the dose time appears to be before anesthesia start (negative), 
+    // it's likely the next day (e.g., anesthesia starts at 23:00, dose at 00:05)
+    if (minutesFromStart < 0) {
+        // Add 24 hours (1440 minutes) to get the correct next-day time
+        minutesFromStart += 1440;
+    }
+    
+    minutesFromStart = Math.round(minutesFromStart);
     
     // Ensure minimum time is 0 (no negative times allowed)
     minutesFromStart = Math.max(0, minutesFromStart);
@@ -334,7 +343,7 @@ function createDoseEventElement(event, index) {
         
         if (event.continuousMgKgHr > 0) {
             const continuousSpan = document.createElement('span');
-            continuousSpan.textContent = `持続: ${event.continuousMgKgHr.toFixed(1)}mg/kg/hr`;
+            continuousSpan.textContent = `持続: ${event.continuousMgKgHr.toFixed(2)}mg/kg/hr`;
             details.appendChild(continuousSpan);
         }
     } else {
