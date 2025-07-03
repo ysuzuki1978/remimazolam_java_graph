@@ -8,7 +8,7 @@
 
 ## 特徴
 
-- **高精度計算**: V3ハイブリッド + LSODA エンジンによる0.01分間隔の計算
+- **高精度計算**: 血漿濃度計算: LSODA積分法（Adams法・BDF法自動切替）、効果部位濃度: VHAC法（Variable-step Hybrid Algorithm for Ce）による0.01分間隔の計算
 - **LSODA積分法**: 剛性・非剛性を自動判定する最適化されたODE解法
 - **3コンパートメントモデル**: Masui 2022 人口薬物動態モデル
 - **効果部位濃度**: Masui & Hagihira 2022 ke0モデル
@@ -69,7 +69,7 @@ remimazolam_java/
 - 投与中止（両方を0に設定）
 
 ### 3. シミュレーション実行
-- V3ハイブリッドエンジンによる高精度計算
+- 血漿濃度計算: LSODA積分法（Adams法・BDF法自動切替）、効果部位濃度: VHAC法（Variable-step Hybrid Algorithm for Ce）による高精度計算
 - 血漿濃度と効果部位濃度の同時計算
 - リアルタイム結果表示
 
@@ -168,7 +168,7 @@ LSODA (Livermore Solver for Ordinary Differential Equations with Automatic metho
 
 - **v1.0**: Web版初回リリース
   - iOS版からの完全移植
-  - V3ハイブリッド + LSODA エンジン実装
+  - 血漿濃度計算: LSODA積分法（Adams法・BDF法自動切替）、効果部位濃度: VHAC法（Variable-step Hybrid Algorithm for Ce）実装
   - LSODA解法による高精度計算
   - 剛性問題の自動対応
   - 適応的ステップサイズ制御

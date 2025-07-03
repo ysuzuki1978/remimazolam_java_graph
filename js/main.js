@@ -275,10 +275,11 @@ function addDoseEvent(e) {
     let minutesFromStart = appState.patient.clockTimeToMinutes(doseTime);
     
     // If the dose time appears to be before anesthesia start (negative), 
-    // it's likely the next day (e.g., anesthesia starts at 23:00, dose at 00:05)
+    // it's likely the next day (e.g., anesthesia starts at 23:22, dose at 00:35)
     if (minutesFromStart < 0) {
         // Add 24 hours (1440 minutes) to get the correct next-day time
         minutesFromStart += 1440;
+        console.log(`日跨ぎ計算: ${timeValue} → ${minutesFromStart}分後`);
     }
     
     minutesFromStart = Math.round(minutesFromStart);
